@@ -26,11 +26,11 @@ echo "[3/5] 备份远端 settings.json + 保存其原 statusLine 命令..."
 ssh "$HOST" 'cp ~/.claude/settings.json ~/.claude/settings.json.cu-bak'
 ssh "$HOST" 'node -e "const fs=require(\"fs\"),p=process.env.HOME+\"/.claude/settings.json\",j=JSON.parse(fs.readFileSync(p,\"utf8\"));const c=j.statusLine&&j.statusLine.command;if(!c){console.error(\"远端无 statusLine.command\");process.exit(1)}if(/statusline\\.sh/.test(c)){console.log(\"      已是包裹器，保留既有 orig-command.txt（防递归）\");process.exit(0)}fs.writeFileSync(process.env.HOME+\"/.config/claude-usage/statusline.orig-command.txt\",c+\"\n\")"'
 
-echo "[4/5] 写远端透传包裹器 statusline.sh（node=$RNODE）..."
+echo "[4/5] 写远端透传包裹器 statusline.sh (node=${RNODE})..."
 cat <<EOF | ssh "$HOST" 'cat > ~/.config/claude-usage/statusline.sh'
 #!/usr/bin/env bash
 # claude-usage 透传包裹 statusline（远端）。还原: cp ~/.claude/settings.json.cu-bak ~/.claude/settings.json
-NODE=$RNODE
+NODE=${RNODE}
 REC="\$HOME/.config/claude-usage/statusline-record.mjs"
 ORIG_FILE="\$HOME/.config/claude-usage/statusline.orig-command.txt"
 input="\$(cat)"
