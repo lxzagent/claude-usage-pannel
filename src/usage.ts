@@ -1,4 +1,7 @@
+import * as fs from 'node:fs';
 import * as https from 'node:https';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { AccountError, AccountUsage } from './types.js';
 import { planName, readCredentials } from './credentials.js';
 
@@ -13,6 +16,37 @@ interface CacheEntry {
   error?: AccountError;
 }
 let cache: CacheEntry | null = null;
+
+// 跨进程共享缓存：daemon / collect CLI / 远端 SSH 各是独立进程，内存缓存互不相通，
+// 会各自去打 OAuth usage 接口 → 429。落盘让它们共享同一个 5 分钟窗口。只存成功结果（不存错误/凭证）。
+function diskCacheFile(): string {
+  const base = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), '.config');
+  return path.join(base, 'claude-usage', 'usage-cache.json');
+}
+
+function readDiskCache(now: number): CacheEntry | null {
+  try {
+    const e = JSON.parse(fs.readFileSync(diskCacheFile(), 'utf8'));
+    if (e && typeof e.at === 'number' && e.account && now - e.at < CACHE_TTL_MS) {
+      return { at: e.at, account: e.account };
+    }
+  } catch {
+    // 无缓存 / 损坏 / 已过期 → 视为未命中
+  }
+  return null;
+}
+
+function writeDiskCache(entry: CacheEntry): void {
+  try {
+    const f = diskCacheFile();
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    const tmp = `${f}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(entry));
+    fs.renameSync(tmp, f); // 原子替换，避免并发进程读到半截
+  } catch {
+    // 落盘失败不影响功能
+  }
+}
 
 function usingCustomEndpoint(): boolean {
   const base = (process.env.ANTHROPIC_BASE_URL ?? process.env.ANTHROPIC_API_BASE_URL ?? '').trim();
@@ -83,6 +117,13 @@ export async function getAccountUsage(
     return { account: cache.account, error: cache.error };
   }
 
+  // 跨进程命中：远端 SSH / CLI 每次都是新进程，内存缓存为空，先看落盘缓存。
+  const disk = readDiskCache(now);
+  if (disk) {
+    cache = disk;
+    return { account: disk.account };
+  }
+
   if (usingCustomEndpoint()) {
     cache = { at: now, account: null, error: 'custom-endpoint' };
     return { account: null, error: 'custom-endpoint' };
@@ -116,5 +157,6 @@ export async function getAccountUsage(
       : null,
   };
   cache = { at: now, account };
+  writeDiskCache(cache); // 让其它进程（远端/CLI/重启后的 daemon）复用同一窗口
   return { account };
 }

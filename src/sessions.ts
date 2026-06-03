@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import { contextPct, resolveContextWindow } from './context-window.js';
+import { cachedContextWindow, contextPct, resolveContextWindow } from './context-window.js';
 import { costUsd } from './pricing.js';
 import type { CostBucket, CostWindows, SessionInfo, TokenCounts } from './types.js';
 
@@ -99,10 +99,12 @@ async function parseSession(file: string, override: number): Promise<SessionInfo
   if (!lastUsage) return null;
   // 当前上下文占用 ≈ 最近一次请求送入的 input + 命中缓存 + 新建缓存。
   const contextTokens = lastUsage.input + lastUsage.cacheRead + lastUsage.cacheWrite;
-  const window = resolveContextWindow(model, peakContext, override);
+  const sessionId = path.basename(file, '.jsonl');
+  // statusline 记录器落盘的精确窗口大小（自包含）；无则回退启发式。
+  const window = resolveContextWindow(model, peakContext, override, cachedContextWindow(sessionId));
 
   return {
-    sessionId: path.basename(file, '.jsonl'),
+    sessionId,
     project: cwd ? path.basename(cwd) : path.basename(path.dirname(file)),
     cwd,
     model,

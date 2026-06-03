@@ -6,7 +6,7 @@
 
 ## 数据来源
 
-- **官方额度**：`GET https://api.anthropic.com/api/oauth/usage`，用本机 OAuth 凭证（macOS 钥匙串 `Claude Code-credentials` 或 `~/.claude/.credentials.json`）。token 仅在本机使用，**不下发前端、不经聚合端传输、不写日志**。
+- **官方额度**：`GET https://api.anthropic.com/api/oauth/usage`，用本机 OAuth 凭证（macOS 钥匙串 `Claude Code-credentials` 或 `~/.claude/.credentials.json`）。token 仅在本机使用，**不下发前端、不经聚合端传输、不写日志**。结果按 **5 分钟跨进程缓存**（落盘 `~/.config/claude-usage/usage-cache.json`，仅存利用率%）——daemon/CLI/远端 SSH 各是独立进程，共享此缓存以避免 429 限流。
 - **会话 / 成本**：解析 `~/.claude/projects/**/*.jsonl`，无需凭证。
   - 当前 Context ≈ 最近一条 assistant 消息的 `input + cache_read + cache_creation`。
   - 成本按每条消息 `timestamp` 分入近 5h / 24h / 7d 滚动窗口，× 模型单价（`src/pricing.ts`，**近似可改**）。
@@ -34,7 +34,16 @@ npm run collect    # 调试：打印本机一份 HostSnapshot
 
 ## 上下文窗口推断
 
-transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 中提供），故按：**配置覆盖 > 观测峰值 >20 万判 1M > model 含 `[1m]` > 默认 20 万**。Token 数始终精确；仅"百分比"依赖此推断。全程跑 `[1m]` 的话建议把 `contextWindow` 设为 `1000000`（但会令真正 200k 的 sonnet/haiku 会话占比偏低）。
+transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 里给 `context_window.context_window_size`），故按优先级：**配置覆盖 > 观测峰值>20万(物理溢出) > statusline 记录的精确值 > model 含 `[1m]` > 默认 20 万**。Token 数始终精确；仅"百分比"依赖此推断。
+
+### 精确窗口：statusline 记录器（推荐）
+
+要彻底判准（尤其「用量还没到 20 万的 1M 会话」），用本项目自带的 statusline 记录器：它在每次 statusline 刷新时抓 stdin 的 `context_window_size`，按 `session_id` 写到 `~/.config/claude-usage/context-cache/`，面板优先读它。**自包含，不依赖 claude-hud**；读不到则回退上面的启发式。
+
+- 本机：`bash statusline/install-local.sh`
+- 远端（每台 SSH 主机各跑一次）：`bash statusline/install-remote.sh <host>` —— 远端 collector 在远端执行、读远端缓存，故远端也需安装
+
+两者都是**透传包裹**你现有的 statusLine（先备份 `~/.claude/settings.json.cu-bak`，原命令存进 `statusline.orig-command.txt`），不影响原 HUD/claude-hud。还原：`cp ~/.claude/settings.json.cu-bak ~/.claude/settings.json`。
 
 ## 桌面卡片 (Übersicht)
 
