@@ -101,7 +101,7 @@ async function parseSession(file: string, override: number): Promise<SessionInfo
   const contextTokens = lastUsage.input + lastUsage.cacheRead + lastUsage.cacheWrite;
   const sessionId = path.basename(file, '.jsonl');
   // statusline 记录器落盘的精确窗口大小（自包含）；无则回退启发式。
-  const window = resolveContextWindow(model, peakContext, override, cachedContextWindow(sessionId));
+  const window = resolveContextWindow(peakContext, override, cachedContextWindow(sessionId));
 
   return {
     sessionId,

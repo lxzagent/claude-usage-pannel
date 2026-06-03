@@ -34,7 +34,7 @@ npm run collect    # 调试：打印本机一份 HostSnapshot
 
 ## 上下文窗口推断
 
-transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 里给 `context_window.context_window_size`），故按优先级：**配置覆盖 > 观测峰值>20万(物理溢出) > statusline 记录的精确值 > model 含 `[1m]` > 默认 20 万**。Token 数始终精确；仅"百分比"依赖此推断。
+transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 里给 `context_window.context_window_size`），故按优先级：**配置覆盖 > 观测峰值>20万(物理溢出) > statusline 记录的精确值 > 默认 1M**。默认按 1M 估，因为 transcript 的 `message.model` 永远是裸 id（从不带 `[1m]` 后缀），且 VSCode 插件会话不执行自定义 statusLine、拿不到精确窗口——无精确信号时若按 20 万兜底会把 1M 会话误判。需强制 20 万请用 `contextWindow` 配置覆盖。Token 数始终精确；仅"百分比"依赖此推断。
 
 ### 精确窗口：statusline 记录器（推荐）
 
