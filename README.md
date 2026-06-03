@@ -2,6 +2,8 @@
 
 本地 HTTP 面板，展示已登录 Claude 账号的官方 **5h / 周用量**、**当前活跃会话的 Context 占用**，以及**按滚动窗口（近 5h / 24h / 本周）估算的成本**。支持通过 SSH 聚合多台主机。
 
+![效果](./img/card.png)
+
 ## 数据来源
 
 - **官方额度**：`GET https://api.anthropic.com/api/oauth/usage`，用本机 OAuth 凭证（macOS 钥匙串 `Claude Code-credentials` 或 `~/.claude/.credentials.json`）。token 仅在本机使用，**不下发前端、不经聚合端传输、不写日志**。
