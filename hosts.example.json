@@ -1,0 +1,12 @@
+{
+  "port": 4317,
+  "pollSeconds": 5,
+  "activeWindowSeconds": 300,
+  "contextWindow": 0,
+  "remoteCacheSeconds": 30,
+  "hosts": [
+    { "name": "本机", "type": "local" },
+    { "name": "vps-1", "type": "ssh", "ssh": "neo@1.2.3.4" },
+    { "name": "工作站", "type": "ssh", "ssh": "work-mac" }
+  ]
+}

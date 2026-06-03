@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>claude-usage</title>
+    <style>
+      :root {
+        --bg: #0e0f13;
+        --card: #181a21;
+        --line: #262932;
+        --fg: #e6e8ee;
+        --muted: #8b90a0;
+        --accent: #d97757;
+        --green: #4caf80;
+        --warn: #e0b341;
+        --red: #e0625b;
+        --track: #23262f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.5 ui-sans-serif, -apple-system, "SF Pro", "PingFang SC", system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 20px 28px;
+        border-bottom: 1px solid var(--line);
+      }
+      header h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+      header .meta { color: var(--muted); font-size: 12px; }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 16px;
+        padding: 24px 28px;
+      }
+      .host {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+      }
+      .host-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .host-name { font-weight: 600; font-size: 15px; }
+      .pill {
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: #2a2d36;
+        color: var(--muted);
+      }
+      .pill.max { background: rgba(217,119,87,.18); color: var(--accent); }
+      .pill.err { background: rgba(224,98,91,.16); color: var(--red); }
+      .bars { display: grid; gap: 12px; margin-bottom: 8px; }
+      .bar-row .label {
+        display: flex; justify-content: space-between;
+        font-size: 12px; color: var(--muted); margin-bottom: 4px;
+      }
+      .bar-row .label b { color: var(--fg); font-weight: 600; }
+      .track {
+        height: 8px; background: var(--track);
+        border-radius: 999px; overflow: hidden;
+      }
+      .fill { height: 100%; border-radius: 999px; transition: width .4s ease; }
+      .note { color: var(--muted); font-size: 12px; padding: 6px 0; }
+      .sessions { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+      .sessions h4 {
+        margin: 0 0 10px; font-size: 11px; text-transform: uppercase;
+        letter-spacing: .6px; color: var(--muted); font-weight: 600;
+      }
+      .sess { margin-bottom: 12px; }
+      .sess:last-child { margin-bottom: 2px; }
+      .sess .top {
+        display: flex; justify-content: space-between; gap: 8px;
+        font-size: 13px; margin-bottom: 3px;
+      }
+      .sess .proj { font-weight: 600; }
+      .sess .ctx { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .sess .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
+      .cost {
+        margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+        display: flex; justify-content: space-between; gap: 8px;
+        font-size: 12px; color: var(--muted);
+      }
+      .cost .col { text-align: center; flex: 1; }
+      .cost .col span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+      .cost .col b { color: var(--fg); font-size: 14px; font-variant-numeric: tabular-nums; }
+      .empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>claude-usage</h1>
+      <span class="meta" id="meta">连接中…</span>
+    </header>
+    <main id="main"></main>
+
+    <script>
+      const ERR_TEXT = {
+        'no-credentials': '未登录 / 无凭证',
+        'keychain-locked': '钥匙串锁定（SSH 会话不可读）',
+        'token-expired': '凭证已过期',
+        'api-user': 'API 用户（无订阅额度）',
+        'api-error': 'API 异常',
+        'rate-limited': 'API 限流，显示上次值',
+        'custom-endpoint': '自定义端点，跳过',
+      };
+
+      function fmtTokens(n) {
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+        return String(n);
+      }
+      function fmtReset(iso) {
+        if (!iso) return '';
+        const ms = new Date(iso).getTime() - Date.now();
+        if (ms <= 0) return '即将重置';
+        const h = Math.floor(ms / 3.6e6);
+        const m = Math.floor((ms % 3.6e6) / 6e4);
+        return h > 0 ? `${h}h${m}m 后重置` : `${m}m 后重置`;
+      }
+      function fmtAgo(iso) {
+        if (!iso) return '';
+        const ms = Date.now() - new Date(iso).getTime();
+        const m = Math.floor(ms / 6e4);
+        if (m < 1) return '刚刚';
+        if (m < 60) return `${m} 分钟前`;
+        return `${Math.floor(m / 60)} 小时前`;
+      }
+      function color(pct) {
+        if (pct >= 90) return 'var(--red)';
+        if (pct >= 70) return 'var(--warn)';
+        return 'var(--accent)';
+      }
+      function bar(label, info) {
+        if (!info) return '';
+        const p = info.pct;
+        return `<div class="bar-row">
+          <div class="label"><span>${label}</span><span><b>${p}%</b> · ${fmtReset(info.resetsAt)}</span></div>
+          <div class="track"><div class="fill" style="width:${p}%;background:${color(p)}"></div></div>
+        </div>`;
+      }
+      function sessionRow(s) {
+        const p = s.contextPct;
+        return `<div class="sess">
+          <div class="top">
+            <span class="proj">${s.project || '—'}</span>
+            <span class="ctx">${fmtTokens(s.contextTokens)} / ${fmtTokens(s.contextWindow)} · ${p}%</span>
+          </div>
+          <div class="track"><div class="fill" style="width:${p}%;background:${color(p)}"></div></div>
+          <div class="sub">${s.model || '?'} · ${fmtAgo(s.lastActiveAt)} · ≈$${s.costUsd.toFixed(3)}</div>
+        </div>`;
+      }
+      function hostCard(h) {
+        let acct = '';
+        if (h.account) {
+          const planClass = h.account.plan === 'Max' ? 'max' : '';
+          acct = `<span class="pill ${planClass}">${h.account.plan}</span>`;
+        } else {
+          acct = `<span class="pill err">${ERR_TEXT[h.accountError] || '无额度'}</span>`;
+        }
+
+        let body = '';
+        if (!h.ok) {
+          body = `<div class="note" style="color:var(--red)">采集失败：${h.error || '未知'}</div>`;
+        } else {
+          if (h.account) {
+            body += `<div class="bars">${bar('5 小时', h.account.fiveHour)}${bar('本周', h.account.sevenDay)}</div>`;
+          }
+          body += `<div class="sessions"><h4>活跃会话 (${h.sessions.length})</h4>`;
+          body += h.sessions.length
+            ? h.sessions.map(sessionRow).join('')
+            : `<div class="empty">窗口内无活跃会话</div>`;
+          body += `</div>`;
+          const col = (label, bucket) =>
+            `<div class="col"><span>${label}</span><b>$${bucket.usd.toFixed(2)}</b></div>`;
+          body += `<div class="cost" title="按消息时间分桶，估算">${col('近 5h', h.cost.fiveHour)}${col('近 24h', h.cost.day)}${col('本周', h.cost.week)}</div>`;
+        }
+
+        return `<section class="host">
+          <div class="host-head"><span class="host-name">${h.name}</span>${acct}</div>
+          ${body}
+        </section>`;
+      }
+
+      let pollSeconds = 5;
+      async function tick() {
+        try {
+          const r = await fetch('/api/stats');
+          const d = await r.json();
+          if (d.pollSeconds) pollSeconds = d.pollSeconds;
+          document.getElementById('main').innerHTML = (d.hosts || []).map(hostCard).join('');
+          document.getElementById('meta').textContent =
+            '更新于 ' + new Date(d.generatedAt).toLocaleTimeString();
+        } catch (e) {
+          document.getElementById('meta').textContent = '获取失败，重试中…';
+        }
+      }
+      (function loop() {
+        tick().finally(() => setTimeout(loop, pollSeconds * 1000));
+      })();
+    </script>
+  </body>
+</html>

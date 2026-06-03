@@ -1,0 +1,4 @@
+node_modules/
+dist/
+collector.bundle.cjs
+.claude/
