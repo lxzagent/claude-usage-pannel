@@ -45,7 +45,13 @@ transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 中�
    - 需先 `npm run build`（生成 `dist/` 与 `collector.bundle.cjs`）。
 4. 启动 Übersicht（首次需 Gatekeeper 放行），卡片出现在桌面右上角，每 5s 刷新。
 
-卡片样式/位置在 `index.jsx` 的 `className` 里调（`top/right/width`）。
+### 卡片：每主机独立 + 可拖拽
+
+每台主机渲染成**一张独立卡片**。支持**拖拽移动**：按住卡片拖到任意位置即可，位置按主机名记进 widget 的 `localStorage`，刷新/重启都保留（Übersicht 本身无原生拖拽，由 `index.jsx` 内 window 事件委托实现）。卡片样式在 `index.jsx` 的 `className` 里调；默认初始排布（沿屏幕右侧竖向依次排开）在 `loadPos()` 里调。
+
+### 毛玻璃（需屏幕录制权限）
+
+卡片用 `backdrop-filter: blur(18px) saturate(1.3)` + 半透明背景。要让它**真正糊到壁纸**，须给 Übersicht 授予**屏幕录制**权限：系统设置 → 隐私与安全性 → 屏幕录制 → 打开 Übersicht（按提示退出并重开）。这是 macOS 隐私机制——未授权的 app「只能看到壁纸/自身」，Übersicht 需该权限把壁纸采进来当 backdrop 底。**不授权**则退化为半透明深色块（仍有玻璃感，但糊不到壁纸），并非 bug。
 
 ## 多主机 (SSH)
 
