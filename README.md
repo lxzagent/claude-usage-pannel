@@ -34,6 +34,19 @@ npm run collect    # 调试：打印本机一份 HostSnapshot
 
 transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 中提供），故按：**配置覆盖 > 观测峰值 >20 万判 1M > model 含 `[1m]` > 默认 20 万**。Token 数始终精确；仅"百分比"依赖此推断。全程跑 `[1m]` 的话建议把 `contextWindow` 设为 `1000000`（但会令真正 200k 的 sonnet/haiku 会话占比偏低）。
 
+## 桌面卡片 (Übersicht)
+
+把面板做成贴在 macOS 桌面壁纸层的小卡片，瘦客户端 `curl` 取本地服务数据。
+
+1. 装 Übersicht：`brew install --cask ubersicht`
+2. 部署 widget：把 `ubersicht/claude-usage.widget/` 拷到 `~/Library/Application Support/Übersicht/widgets/`
+3. 让服务常驻（开机自启）：把 `launchd/com.lxz.claude-usage.plist` 拷到 `~/Library/LaunchAgents/` 并 `launchctl load -w`。
+   - 注意 plist 里的 `node` 与项目路径是**绝对路径**（本机 nvm），换机/升级 node 需同步修改。
+   - 需先 `npm run build`（生成 `dist/` 与 `collector.bundle.cjs`）。
+4. 启动 Übersicht（首次需 Gatekeeper 放行），卡片出现在桌面右上角，每 5s 刷新。
+
+卡片样式/位置在 `index.jsx` 的 `className` 里调（`top/right/width`）。
+
 ## 多主机 (SSH)
 
 聚合端对每个 `ssh` 主机执行 `ssh <host> 'node - ...'`，把打包好的 `collector.bundle.cjs` 经 stdin 注入远端 node 执行，只回传算好的快照。
