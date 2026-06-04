@@ -58,9 +58,22 @@ const ERR = {
   'custom-endpoint': '自定义端点',
 };
 
-const barColor = (p) => (p >= 90 ? '#e0625b' : p >= 70 ? '#e0b341' : '#d97757');
+// 三档配色：≤40% 绿、中间橙（Claude 主色）、≥90% 红。
+const barColor = (p) => (p >= 90 ? '#e0625b' : p <= 40 ? '#4caf80' : '#d97757');
 const fmtTok = (n) =>
   n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n);
+// 距额度刷新还剩多久；resetsAt 为 ISO 字符串（来自 OAuth usage 接口）。
+const fmtReset = (iso) => {
+  if (!iso) return '';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return '即将刷新';
+  const d = Math.floor(ms / 8.64e7);
+  const h = Math.floor((ms % 8.64e7) / 3.6e6);
+  const m = Math.floor((ms % 3.6e6) / 6e4);
+  if (d > 0) return `${d}天${h}h后刷新`;
+  if (h > 0) return `${h}h${m}m后刷新`;
+  return `${m}m后刷新`;
+};
 
 // ---------- 位置持久化 ----------
 const CARD_W = 300;
@@ -109,7 +122,7 @@ const Bar = (label, info) =>
     <div className="cu-row">
       <div className="cu-label">
         <span>{label}</span>
-        <span><b>{info.pct}%</b></span>
+        <span><b>{info.pct}%</b>{info.resetsAt ? ' · ' + fmtReset(info.resetsAt) : ''}</span>
       </div>
       <div className="cu-track">
         <div className="cu-fill" style={{ width: info.pct + '%', background: barColor(info.pct) }} />

@@ -125,8 +125,10 @@
         if (!iso) return '';
         const ms = new Date(iso).getTime() - Date.now();
         if (ms <= 0) return '即将重置';
-        const h = Math.floor(ms / 3.6e6);
+        const d = Math.floor(ms / 8.64e7);
+        const h = Math.floor((ms % 8.64e7) / 3.6e6);
         const m = Math.floor((ms % 3.6e6) / 6e4);
+        if (d > 0) return `${d}天${h}h 后重置`;
         return h > 0 ? `${h}h${m}m 后重置` : `${m}m 后重置`;
       }
       function fmtAgo(iso) {
@@ -138,8 +140,9 @@
         return `${Math.floor(m / 60)} 小时前`;
       }
       function color(pct) {
+        // 三档：≤40% 绿、中间橙（Claude 主色）、≥90% 红。
         if (pct >= 90) return 'var(--red)';
-        if (pct >= 70) return 'var(--warn)';
+        if (pct <= 40) return 'var(--green)';
         return 'var(--accent)';
       }
       function bar(label, info) {
