@@ -51,9 +51,10 @@ transcript 不记录窗口大小（Claude Code 仅在 statusline 的 stdin 里�
 
 1. 装 Übersicht：`brew install --cask ubersicht`
 2. 部署 widget：把 `ubersicht/claude-usage.widget/` 拷到 `~/Library/Application Support/Übersicht/widgets/`
-3. 让服务常驻（开机自启）：把 `launchd/com.lxz.claude-usage.plist` 拷到 `~/Library/LaunchAgents/` 并 `launchctl load -w`。
-   - 注意 plist 里的 `node` 与项目路径是**绝对路径**（本机 nvm），换机/升级 node 需同步修改。
-   - 需先 `npm run build`（生成 `dist/` 与 `collector.bundle.cjs`）。
+3. 让服务常驻（开机自启）：`bash launchd/install.sh`
+   - 脚本按本机 `which node` 与仓库实际路径**动态生成** plist 写入 `~/Library/LaunchAgents/`，再加载并启动；换机/升级 node 后重跑一次即可（**不要**手工拷贝 `launchd/com.lxz.claude-usage.plist`，那是占位模板）。
+   - 若没构建过会自动 `npm run build`（生成 `dist/` 与 `collector.bundle.cjs`）；改了代码后重跑脚本即可重启加载新代码。
+   - 卸载：`launchctl bootout gui/$(id -u)/com.lxz.claude-usage; rm ~/Library/LaunchAgents/com.lxz.claude-usage.plist`
 4. 启动 Übersicht（首次需 Gatekeeper 放行），卡片出现在桌面右上角，每 5s 刷新。
 
 ### 卡片：每主机独立 + 可拖拽

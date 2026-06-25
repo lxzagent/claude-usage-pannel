@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 模板：占位符由 launchd/install.sh 按本机实际 node 路径 / 仓库位置替换后写入 ~/Library/LaunchAgents/。
+     请勿手工拷贝本文件——直接跑 `bash launchd/install.sh`。 -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -7,19 +9,19 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/neo/.nvm/versions/node/v24.12.0/bin/node</string>
-    <string>/Volumes/ext/Projects/AI/claude-usage/dist/server.js</string>
+    <string>__NODE__</string>
+    <string>__REPO__/dist/server.js</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Volumes/ext/Projects/AI/claude-usage</string>
+  <string>__REPO__</string>
 
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
-    <string>/Users/neo</string>
+    <string>__HOME__</string>
     <key>PATH</key>
-    <string>/Users/neo/.nvm/versions/node/v24.12.0/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    <string>__NODE_DIR__:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
   </dict>
 
   <key>RunAtLoad</key>
