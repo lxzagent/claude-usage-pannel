@@ -36,6 +36,16 @@ function readDiskCache(now: number): CacheEntry | null {
   return null;
 }
 
+// 忽略 TTL 读最后一次成功的额度值，仅用于 token-stale（待刷新）时维持展示，避免误报「过期」。
+function lastGoodAccount(): AccountUsage | null {
+  try {
+    const e = JSON.parse(fs.readFileSync(diskCacheFile(), 'utf8'));
+    return e && e.account ? e.account : null;
+  } catch {
+    return null;
+  }
+}
+
 function writeDiskCache(entry: CacheEntry): void {
   try {
     const f = diskCacheFile();
@@ -131,7 +141,12 @@ export async function getAccountUsage(
 
   const { credentials, error: credError } = readCredentials(now);
   if (!credentials) {
-    // 凭证类错误不长缓存（钥匙串可能随时解锁）。
+    // token-stale：access token 过期但有 refreshToken，账号健康。不报错，沿用最后一次成功的额度值
+    // （内存优先，其次落盘且忽略 TTL），等 Claude Code 下次活动自动刷新即恢复。
+    if (credError === 'token-stale') {
+      return { account: cache?.account ?? lastGoodAccount(), error: 'token-stale' };
+    }
+    // 其它凭证类错误不长缓存（钥匙串可能随时解锁）。
     return { account: null, error: credError };
   }
 

@@ -25,17 +25,20 @@ function credentialsFilePath(): string {
   return path.join(claudeConfigDir(), '.credentials.json');
 }
 
-// 返回 'expired' 以便上层区分过期与缺失。
-function parse(data: any, now: number): Credentials | 'expired' | null {
+// 返回 'stale'（过期但有 refreshToken，可自动刷新）/ 'expired'（过期且无法刷新）/ null（缺失），供上层区分。
+function parse(data: any, now: number): Credentials | 'stale' | 'expired' | null {
   const oauth = data?.claudeAiOauth;
   const accessToken = oauth?.accessToken;
   if (!accessToken) return null;
   const expiresAt = oauth?.expiresAt;
-  if (expiresAt != null && expiresAt <= now) return 'expired';
+  if (expiresAt != null && expiresAt <= now) {
+    // 有 refreshToken 时只是「待刷新」——账号没问题，Claude Code 下次发请求会自动换新 token。
+    return oauth?.refreshToken ? 'stale' : 'expired';
+  }
   return { accessToken, subscriptionType: oauth?.subscriptionType ?? '' };
 }
 
-function fromFile(now: number): Credentials | 'expired' | null {
+function fromFile(now: number): Credentials | 'stale' | 'expired' | null {
   try {
     const p = credentialsFilePath();
     if (!fs.existsSync(p)) return null;
@@ -46,7 +49,7 @@ function fromFile(now: number): Credentials | 'expired' | null {
 }
 
 // 仅 macOS。非交互 SSH 会话钥匙串常被锁，失败即返回 null。
-function fromKeychain(now: number): Credentials | 'expired' | null {
+function fromKeychain(now: number): Credentials | 'stale' | 'expired' | null {
   if (process.platform !== 'darwin') return null;
   try {
     const account = os.userInfo().username;
@@ -64,11 +67,15 @@ function fromKeychain(now: number): Credentials | 'expired' | null {
 export function readCredentials(now = Date.now()): CredentialsResult {
   // macOS 2.x 以钥匙串为权威，其次文件（Linux / 旧版）。
   const kc = fromKeychain(now);
-  if (kc && kc !== 'expired') return { credentials: kc };
+  if (kc && kc !== 'expired' && kc !== 'stale') return { credentials: kc };
 
   const file = fromFile(now);
-  if (file && file !== 'expired') return { credentials: file };
+  if (file && file !== 'expired' && file !== 'stale') return { credentials: file };
 
+  // 过期但带 refreshToken → 软状态：账号健康，等 Claude Code 下次活动自动刷新，不当错误报。
+  if (kc === 'stale' || file === 'stale') {
+    return { credentials: null, error: 'token-stale' };
+  }
   if (kc === 'expired' || file === 'expired') {
     return { credentials: null, error: 'token-expired' };
   }

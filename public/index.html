@@ -114,6 +114,7 @@
         'api-error': 'API 异常',
         'rate-limited': 'API 限流，显示上次值',
         'custom-endpoint': '自定义端点，跳过',
+        'token-stale': '待刷新（下次对话自动恢复）',
       };
 
       function fmtTokens(n) {
@@ -168,7 +169,10 @@
         let acct = '';
         if (h.account) {
           const planClass = h.account.plan === 'Max' ? 'max' : '';
-          acct = `<span class="pill ${planClass}">${h.account.plan}</span>`;
+          const stale = h.accountError === 'token-stale' ? ' · 待刷新' : '';
+          acct = `<span class="pill ${planClass}">${h.account.plan}${stale}</span>`;
+        } else if (h.accountError === 'token-stale') {
+          acct = `<span class="pill">待刷新</span>`;
         } else {
           acct = `<span class="pill err">${ERR_TEXT[h.accountError] || '无额度'}</span>`;
         }

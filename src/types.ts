@@ -21,6 +21,7 @@ export type AccountError =
   | 'no-credentials'
   | 'keychain-locked'
   | 'token-expired'
+  | 'token-stale' // access token 过期但有 refreshToken：账号健康，Claude Code 下次活动会自动刷新
   | 'api-user'
   | 'api-error'
   | 'rate-limited'

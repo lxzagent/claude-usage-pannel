@@ -32,6 +32,7 @@ export const className = `
   .cu-name { font-weight: 600; font-size: 13px; }
   .cu-pill { font-size: 10px; padding: 1px 8px; border-radius: 999px; background: rgba(217,119,87,0.18); color: #d97757; }
   .cu-pill.err { background: rgba(224,98,91,0.16); color: #e0625b; }
+  .cu-pill.muted { background: rgba(255,255,255,0.08); color: #8b90a0; }
   .cu-row { margin: 7px 0; }
   .cu-label { display: flex; justify-content: space-between; font-size: 10px; color: #8b90a0; margin-bottom: 3px; }
   .cu-label b { color: #e6e8ee; font-weight: 600; }
@@ -56,6 +57,7 @@ const ERR = {
   'api-error': 'API 异常',
   'rate-limited': '限流',
   'custom-endpoint': '自定义端点',
+  'token-stale': '待刷新',
 };
 
 // 三档配色：≤40% 绿、中间橙（Claude 主色）、≥90% 红。
@@ -135,7 +137,9 @@ const HostCard = (h, pos) => (
     <div className="cu-head">
       <span className="cu-name">{h.name}</span>
       {h.account ? (
-        <span className="cu-pill">{h.account.plan}</span>
+        <span className="cu-pill">{h.account.plan}{h.accountError === 'token-stale' ? ' · 待刷新' : ''}</span>
+      ) : h.accountError === 'token-stale' ? (
+        <span className="cu-pill muted">待刷新</span>
       ) : (
         <span className="cu-pill err">{ERR[h.accountError] || '无额度'}</span>
       )}
